@@ -1,0 +1,136 @@
+x-app-environment: &app-env
+  APP_NAME: notification-service
+  APP_ENV: local
+  APP_KEY: base64:SwgvosiVT0bMZXDkGE1uhvAHFO7M6phMNZfSb9466pw=
+  APP_DEBUG: "false"
+  APP_URL: http://localhost:8080
+  LOG_CHANNEL: stderr
+  DB_CONNECTION: pgsql
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_DATABASE: notifications
+  DB_USERNAME: notifications
+  DB_PASSWORD: secret
+  CACHE_STORE: redis
+  REDIS_CLIENT: phpredis
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  QUEUE_CONNECTION: rabbitmq
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_USER: guest
+  RABBITMQ_PASSWORD: guest
+  SMS_RATE_LIMIT_PER_SECOND: "10"
+  EMAIL_RATE_LIMIT_PER_SECOND: "30"
+  FAKE_PROVIDER_TRANSIENT_FAILURE_PERCENT: "0"
+  FAKE_PROVIDER_PERMANENT_FAILURE_PERCENT: "0"
+  FAKE_PROVIDER_AUTO_CONFIRM: "true"
+
+x-app-base: &app-base
+  build: .
+  restart: unless-stopped
+  environment:
+    <<: *app-env
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
+
+services:
+  app:
+    <<: *app-base
+    environment:
+      <<: *app-env
+      RUN_MIGRATIONS: "true"
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./public:/var/www/html/public:ro
+    depends_on:
+      - app
+
+  worker-transactional:
+    <<: *app-base
+    command: php artisan queue:work rabbitmq --queue=transactional --sleep=1 --max-time=3600
+    depends_on:
+      app:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  worker-marketing:
+    <<: *app-base
+    command: php artisan queue:work rabbitmq --queue=marketing --sleep=1 --max-time=3600
+    depends_on:
+      app:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  scheduler:
+    <<: *app-base
+    command: php artisan schedule:work
+    depends_on:
+      app:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: notifications
+      POSTGRES_USER: notifications
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notifications -d notifications"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    restart: unless-stopped
+    ports:
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:

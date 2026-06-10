@@ -1,0 +1,12 @@
+.git
+.idea
+.env
+.env.backup
+vendor
+node_modules
+storage/logs/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+docker-compose.yml
+CLAUDE.md
