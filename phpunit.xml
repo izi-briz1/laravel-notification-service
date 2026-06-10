@@ -18,17 +18,24 @@
         </include>
     </source>
     <php>
-        <env name="APP_ENV" value="testing"/>
+        <!-- Интеграционные тесты гоняются против реальных PostgreSQL и Redis
+             из docker-compose; force="true" перебивает env контейнера -->
+        <env name="APP_ENV" value="testing" force="true"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
-        <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
+        <env name="CACHE_STORE" value="redis" force="true"/>
+        <env name="REDIS_CACHE_DB" value="9" force="true"/>
+        <env name="REDIS_DB" value="8" force="true"/>
+        <env name="DB_CONNECTION" value="pgsql" force="true"/>
+        <env name="DB_DATABASE" value="notifications_test" force="true"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
-        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="QUEUE_CONNECTION" value="sync" force="true"/>
         <env name="SESSION_DRIVER" value="array"/>
+        <env name="FAKE_PROVIDER_TRANSIENT_FAILURE_PERCENT" value="0" force="true"/>
+        <env name="FAKE_PROVIDER_PERMANENT_FAILURE_PERCENT" value="0" force="true"/>
+        <env name="FAKE_PROVIDER_AUTO_CONFIRM" value="false" force="true"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
