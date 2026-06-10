@@ -35,4 +35,22 @@ return [
         ],
     ],
 
+    'gateways' => [
+        // Лимиты исходящей отправки (сообщений в секунду), общие на все
+        // воркеры — координируются через Redis::throttle
+        'rate_limits' => [
+            'sms' => (int) env('SMS_RATE_LIMIT_PER_SECOND', 10),
+            'email' => (int) env('EMAIL_RATE_LIMIT_PER_SECOND', 30),
+        ],
+
+        'fake' => [
+            // Вероятности ошибок заглушек провайдеров, проценты 0..100
+            'transient_failure_percent' => (int) env('FAKE_PROVIDER_TRANSIENT_FAILURE_PERCENT', 0),
+            'permanent_failure_percent' => (int) env('FAKE_PROVIDER_PERMANENT_FAILURE_PERCENT', 0),
+            // Имитация DLR-колбэка: отложенное автоподтверждение доставки
+            'auto_confirm' => (bool) env('FAKE_PROVIDER_AUTO_CONFIRM', true),
+            'auto_confirm_delay_seconds' => (int) env('FAKE_PROVIDER_AUTO_CONFIRM_DELAY', 3),
+        ],
+    ],
+
 ];
