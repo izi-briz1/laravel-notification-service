@@ -27,7 +27,10 @@ COPY --from=vendor /usr/bin/composer /usr/bin/composer
 COPY . .
 COPY --from=vendor /app/vendor ./vendor
 
-RUN composer dump-autoload --optimize \
+# .env нужен бутстрапу тестов; боевые значения приходят переменными
+# окружения из docker-compose и имеют приоритет над файлом
+RUN cp .env.example .env \
+    && composer dump-autoload --optimize \
     && chown -R www-data:www-data storage bootstrap/cache
 
 COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
