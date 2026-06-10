@@ -15,6 +15,8 @@ if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
         echo "Database is not ready, retrying ($tries/30)..."
         sleep 2
     done
+
+    php artisan l5-swagger:generate
 fi
 
 exec "$@"
