@@ -28,6 +28,15 @@ class NotificationFactory extends Factory
         ];
     }
 
+    public function sending(): static
+    {
+        return $this->state(fn () => [
+            'status' => NotificationStatus::Sending,
+            'attempts' => 1,
+            'dispatched_at' => now(),
+        ]);
+    }
+
     public function sent(): static
     {
         return $this->state(fn () => [

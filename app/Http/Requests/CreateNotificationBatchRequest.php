@@ -36,16 +36,6 @@ class CreateNotificationBatchRequest extends FormRequest
         if ($this->hasHeader('Idempotency-Key')) {
             $this->merge(['idempotency_key' => $this->header('Idempotency-Key')]);
         }
-
-        // Числовые идентификаторы приводим к строкам — храним как есть
-        if (is_array($this->input('recipient_ids'))) {
-            $this->merge([
-                'recipient_ids' => array_map(
-                    static fn ($id) => is_scalar($id) ? (string) $id : $id,
-                    $this->input('recipient_ids'),
-                ),
-            ]);
-        }
     }
 
     public function messages(): array

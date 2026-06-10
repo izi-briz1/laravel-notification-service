@@ -59,7 +59,7 @@ docker-compose run --rm -e RUN_MIGRATIONS=false app php artisan test
 | `app` (php-fpm) + `nginx` | HTTP API |
 | `worker-transactional` | Выделенный consumer очереди `transactional` |
 | `worker-marketing` | Consumer очереди `marketing` |
-| `scheduler` | Laravel Scheduler: outbox-свипер `notifications:dispatch-stuck` |
+| `scheduler` | Laravel Scheduler: outbox-свипер `notifications:dispatch-stuck`, dead-worker-свипер `notifications:requeue-stuck-sending` |
 | `postgres`, `rabbitmq`, `redis` | Хранилище, брокер, кэш/лимиты |
 
 ### Статусы уведомления
@@ -75,6 +75,8 @@ docker-compose run --rm -e RUN_MIGRATIONS=false app php artisan test
 **Transactional Outbox (dual-write между PG и RabbitMQ).** Batch и уведомления коммитятся одной транзакцией; публикация в брокер происходит после коммита с пометкой `dispatched_at`. Если процесс упал между коммитом и публикацией, scheduler раз в минуту переотправляет «зависшие» записи (`status=queued AND dispatched_at IS NULL`, частичный индекс). Дубликаты публикации безопасны (см. ниже).
 
 **Exactly-once на уровне бизнес-логики.** Воркер захватывает сообщение атомарным условным переходом `UPDATE ... SET status='sending' WHERE id=? AND status='queued'`. При redelivery того же сообщения UPDATE вернёт 0 строк — провайдер повторно не вызывается. Вся смена статусов идёт через одну точку (`NotificationStatusService`) с контролем допустимых переходов.
+
+**Восстановление после жёсткого падения воркера (dead-worker sweeper).** Если воркер умер некорректно (kill -9, OOM) после захвата `queued→sending`, redelivery от брокера не помогает — exactly-once гард отбрасывает повтор как дубль, и уведомление зависает в `sending`. Scheduler раз в минуту возвращает такие записи (`status=sending` дольше 5 минут) обратно в `queued` и переотправляет в брокер; исчерпавшие попытки переводятся в `failed`. Для этого аварийного пути семантика — at-least-once: если воркер умер между ответом шлюза и фиксацией `sent`, возможен дубль — для уведомлений это дешевле потери.
 
 **Идемпотентность API.** Обязательный заголовок `Idempotency-Key`: быстрый путь — Redis `SET NX` (TTL 24 ч), источник истины — UNIQUE-констрейнт в PostgreSQL. Повторный запрос возвращает `200` с ранее созданной рассылкой вместо `201`, ничего не дублируя.
 
@@ -149,7 +151,7 @@ curl -X POST http://localhost:8080/api/v1/webhooks/delivery \
 
 ## Тесты
 
-`php artisan test` — 26 интеграционных и unit-тестов (117 assertions) против реальных PostgreSQL/Redis: создание рассылки и маршрутизация по приоритетам, идемпотентность (включая потерю ключа Redis), полная цепочка job → провайдер → статус в БД, exactly-once при redelivery, transient/permanent-ошибки и исчерпание попыток, rate limit канала, outbox-свипер, webhook, история статусов, фильтры и пагинация.
+`php artisan test` — 29 интеграционных и unit-тестов (131 assertion) против реальных PostgreSQL/Redis: создание рассылки и маршрутизация по приоритетам, идемпотентность (включая потерю ключа Redis), полная цепочка job → провайдер → статус в БД, exactly-once при redelivery, transient/permanent-ошибки и исчерпание попыток, rate limit канала, outbox-свипер, dead-worker-свипер для зависших `sending`, webhook, история статусов, фильтры и пагинация.
 
 ## Демонстрация приоритизации
 

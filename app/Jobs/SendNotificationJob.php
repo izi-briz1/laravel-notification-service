@@ -51,7 +51,7 @@ class SendNotificationJob implements ShouldQueue
         }
 
         // Exactly-once гард: при redelivery того же сообщения (at-least-once
-        // от брокера) условный UPDATE выиграет только один раз — провайдер
+        // от брокера) условный UPDATE выиграет только один раз, провайдер
         // повторно не вызывается
         if (! $statuses->claimForSending($notification)) {
             return;
@@ -84,15 +84,23 @@ class SendNotificationJob implements ShouldQueue
         $statuses->markSent($notification, $response->providerMessageId);
     }
 
-    /** Экспоненциальная задержка между попытками: 5с, 10с, 20с, 40с... */
+    /**
+     * Экспоненциальная задержка между попытками: 5с, 10с, 20с, 40с...
+     *
+     * @param int $attempt
+     * @return int
+     */
     private function backoffDelay(int $attempt): int
     {
         return 5 * (2 ** max(0, $attempt - 1));
     }
 
     /**
-     * Вызывается после retryUntil-дедлайна или при неожиданном исключении —
+     * Вызывается после retryUntil-дедлайна или при неожиданном исключении,
      * фиксируем отброшенный статус, из какого бы состояния ни пришли
+     *
+     * @param Throwable|null $exception
+     * @return void
      */
     public function failed(?Throwable $exception): void
     {
@@ -102,7 +110,12 @@ class SendNotificationJob implements ShouldQueue
             return;
         }
 
-        $reason = 'job failed: '.($exception?->getMessage() ?? 'retry deadline exceeded');
+        if ($exception !== null) {
+            $reason = 'job failed: ' . $exception->getMessage();
+        } else {
+            $reason = 'job failed: retry deadline exceeded';
+        }
+
         $statuses = app(NotificationStatusService::class);
 
         $statuses->markFailed($notification, $reason, from: NotificationStatus::Sending)

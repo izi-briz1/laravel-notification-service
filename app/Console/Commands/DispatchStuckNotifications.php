@@ -8,9 +8,9 @@ use App\Models\Notification;
 use Illuminate\Console\Command;
 
 /**
- * Outbox-свипер: переотправляет уведомления, закоммиченные в БД, но не
+ * Переотправляет уведомления, закоммиченные в БД, но не
  * опубликованные в брокер (упали между коммитом транзакции и dispatch'ем).
- * Возможные дубликаты публикации безопасны — exactly-once гард на consumer
+ * Возможные дубликаты публикации безопасны - exactly-once гард на consumer
  * отбрасывает повторную обработку.
  */
 class DispatchStuckNotifications extends Command
