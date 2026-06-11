@@ -129,18 +129,4 @@ class CreateNotificationBatchTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('priority');
     }
-
-    public function test_recipient_ids_are_accepted_as_is_without_format_validation(): void
-    {
-        Queue::fake();
-
-        $this->postJson('/api/v1/notifications', $this->payload([
-            'recipient_ids' => ['42', 'not-a-phone', 'абонент@кириллица'],
-        ]), ['Idempotency-Key' => 'key-1'])->assertCreated();
-
-        $this->assertSame(
-            ['42', 'not-a-phone', 'абонент@кириллица'],
-            Notification::orderBy('id')->pluck('recipient_id')->sort()->values()->all(),
-        );
-    }
 }

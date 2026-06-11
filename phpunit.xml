@@ -19,7 +19,9 @@
     </source>
     <php>
         <!-- Интеграционные тесты гоняются против реальных PostgreSQL и Redis
-             из docker-compose; force="true" перебивает env контейнера -->
+             из docker-compose. force="true" пишет только в $_ENV/putenv, а
+             env() Laravel читает $_SERVER (реальное окружение контейнера)
+             раньше — выравнивание делает tests/TestCase.php -->
         <env name="APP_ENV" value="testing" force="true"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
